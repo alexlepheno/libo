@@ -301,15 +301,26 @@
             const normalizedInput = normalizeForSort(userInput);
             if (!normalizedInput) return null;
 
+            // First pass: check for exact matches on items with no range.
+            for (const row of libraryData) {
+                const begin = normalizeForSort(row.Beg);
+                const end = normalizeForSort(row.End);
+
+                if (!end && normalizedInput === begin) {
+                    return row; // Exact match found for single-entry classmark
+                }
+            }
+
+            // Second pass: check for range matches.
             for (const row of libraryData) {
                 const begin = normalizeForSort(row.Beg);
                 const end = normalizeForSort(row.End);
                 
-                // Use simple string comparison on the normalized values
-                if (normalizedInput >= begin && normalizedInput <= end) {
-                    return row; // Match found!
+                if (end && normalizedInput >= begin && normalizedInput <= end) {
+                    return row; // Match found in range!
                 }
             }
+
             return null; // No match found
         }
 
