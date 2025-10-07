@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maughan Library Book Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* A simple animation for the result display */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-lg mx-auto p-4 md:p-0">
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+            <header class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Library Book Finder</h1>
+                <p class="text-gray-500 mt-2">Enter a book's classmark to find its location.</p>
+            </header>
+
+            <main>
+                <div class="flex flex-col md:flex-row gap-3">
+                    <input type="text" id="classmarkInput" placeholder="e.g., DD237 or K60" class="flex-grow w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300" autocomplete="off">
+                    <button id="findButton" class="w-full md:w-auto bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        Find
+                    </button>
+                </div>
+
+                <!-- Status and Result Area -->
+                <div id="statusArea" class="text-center mt-4 text-gray-500 min-h-[24px]"></div>
+                <div id="resultArea" class="mt-4"></div>
+            </main>
+        </div>
+        <footer class="text-center text-gray-400 text-sm mt-4">
+            <p>Data sourced from the Maughan Library browsing guide.</p>
+        </footer>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION & SETUP ---
+        // IMPORTANT: This now points to the live Google Sheet URL.
+        const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR11cEGoC3aTSo-2g4w8sOF2c2e0gZX2p0E-g2MR7B62YmX-204a_7m1Y5L4Yx5gU4F2Bv4S4i_p4c1/pub?output=csv';
+
+        let libraryData = []; // This will hold our parsed library data.
+
+        // Get references to our HTML elements
+        const findButton = document.getElementById('findButton');
+        const classmarkInput = document.getElementById('classmarkInput');
+        const statusArea = document.getElementById('statusArea');
+        const resultArea = document.getElementById('resultArea');
+
+        // --- 2. DATA FETCHING AND PARSING ---
+
+        /**
+         * Fetches and parses the CSV data from the Google Sheet URL.
+         */
+        async function loadLibraryData() {
+            statusArea.textContent = 'Loading library data...';
+            findButton.disabled = true;
+            try {
+                const response = await fetch(GOOGLE_SHEET_URL);
+                if (!response.ok) {
+                    throw new Error(`Network response was not ok: ${response.statusText}`);
+                }
+                const csvText = await response.text();
+                // Parse the CSV text into an array of objects
+                libraryData = Papa.parse(csvText, { header: true, skipEmptyLines: true }).data;
+
+                statusArea.textContent = 'Data loaded successfully. Ready to search!';
+                findButton.disabled = false;
+                console.log('Library data loaded:', libraryData);
+
+                // Clear the status message after a few seconds
+                setTimeout(() => {
+                    if (statusArea.textContent.includes('successfully')) {
+                        statusArea.textContent = '';
+                    }
+                }, 3000);
+
+            } catch (error) {
+                console.error('Failed to load library data:', error);
+                statusArea.textContent = 'Error: Could not load library data. Please try again later.';
+                statusArea.classList.add('text-red-500');
+            }
+        }
+        
+        // Use PapaParse library for robust CSV parsing
+        function loadPapaParse(callback) {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js';
+            script.onload = callback;
+            document.head.appendChild(script);
+        }
+
+        // --- 3. CORE SEARCH LOGIC ---
+
+        /**
+         * Normalizes a classmark string for reliable comparison.
+         * Splits it into alphabetic and numeric parts.
+         * e.g., "DA 560.E" -> ["DA", 560, ".E"]
+         * @param {string} str - The classmark string.
+         * @returns {Array<string|number>} - An array of parts.
+         */
+        function normalizeClassmark(str) {
+            if (!str) return [];
+            // Add a space before numbers to make splitting easier, then split.
+            const spacedStr = str.toUpperCase().replace(/(\d+)/g, ' $1 ');
+            return spacedStr.split(/\s+/).filter(Boolean).map(part => {
+                // Convert numeric parts to actual numbers for correct sorting
+                return isNaN(part) ? part : Number(part);
+            });
+        }
+
+        /**
+         * Compares two normalized classmarks (A and B).
+         * Returns:
+         * -1 if A < B
+         * 0 if A == B
+         * 1 if A > B
+         */
+        function compareClassmarks(normA, normB) {
+            const len = Math.max(normA.length, normB.length);
+            for (let i = 0; i < len; i++) {
+                const partA = normA[i] || (typeof normB[i] === 'number' ? -Infinity : '');
+                const partB = normB[i] || (typeof normA[i] === 'number' ? -Infinity : '');
+
+                if (partA < partB) return -1;
+                if (partA > partB) return 1;
+            }
+            return 0;
+        }
+
+        /**
+         * Finds the location for a given classmark.
+         * @param {string} userInput - The classmark entered by the user.
+         * @returns {object|null} - The matching row from the data or null if not found.
+         */
+        function findBookLocation(userInput) {
+            const normalizedInput = normalizeClassmark(userInput);
+            if (normalizedInput.length === 0) return null;
+
+            for (const row of libraryData) {
+                const begin = normalizeClassmark(row.Begin);
+                const end = normalizeClassmark(row.End);
+                
+                // Check if input is between Begin and End (inclusive)
+                if (compareClassmarks(normalizedInput, begin) >= 0 && compareClassmarks(normalizedInput, end) <= 0) {
+                    return row; // Match found!
+                }
+            }
+            return null; // No match found
+        }
+
+        // --- 4. DISPLAY AND EVENT HANDLING ---
+
+        /**
+         * Displays the search result on the page.
+         * @param {object|null} result - The result object from the search.
+         */
+        function displayResult(result) {
+            resultArea.innerHTML = ''; // Clear previous results
+            if (!result) {
+                resultArea.innerHTML = `
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg fade-in" role="alert">
+                        <p class="font-bold">Not Found</p>
+                        <p>We couldn't find a location for that classmark. Please check for typos.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Create the result card
+            resultArea.innerHTML = `
+                <div class="bg-green-100 border-l-4 border-green-500 p-6 rounded-lg shadow-sm fade-in">
+                    <h2 class="text-xl font-bold text-gray-800">Location Found!</h2>
+                    <div class="mt-4 space-y-2">
+                        <p><strong class="w-24 inline-block text-gray-600">Room(s):</strong> <span class="text-2xl font-bold text-green-700">${result['Room(s)'] || 'N/A'}</span></p>
+                        <p><strong class="w-24 inline-block text-gray-600">Collection:</strong> <span class="font-medium text-gray-700">${result.Collection || 'N/A'}</span></p>
+                        <p><strong class="w-24 inline-block text-gray-600">Subject:</strong> <span class="font-medium text-gray-700">${result.Subject || 'N/A'}</span></p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        /**
+         * Main search handler function.
+         */
+        function performSearch() {
+            const query = classmarkInput.value.trim();
+            if (!query) {
+                statusArea.textContent = 'Please enter a classmark.';
+                return;
+            }
+            statusArea.textContent = '';
+            const location = findBookLocation(query);
+            displayResult(location);
+        }
+
+        // Attach event listeners
+        findButton.addEventListener('click', performSearch);
+        classmarkInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        // --- 5. INITIALIZATION ---
+        // Load the CSV parser, then load the library data.
+        loadPapaParse(loadLibraryData);
+
+    </script>
+</body>
+</html>
