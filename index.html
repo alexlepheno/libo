@@ -49,8 +49,8 @@
 
     <script>
         // --- 1. CONFIGURATION & SETUP ---
-        // IMPORTANT: This now points to the live Google Sheet URL.
-        const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR11cEGoC3aTSo-2g4w8sOF2c2e0gZX2p0E-g2MR7B62YmX-204a_7m1Y5L4Yx5gU4F2Bv4S4i_p4c1/pub?output=csv';
+        // This now points to the local CSV file in your repository.
+        const GOOGLE_SHEET_URL = 'data_lib.csv';
 
         let libraryData = []; // This will hold our parsed library data.
 
@@ -63,7 +63,7 @@
         // --- 2. DATA FETCHING AND PARSING ---
 
         /**
-         * Fetches and parses the CSV data from the Google Sheet URL.
+         * Fetches and parses the CSV data from the local file.
          */
         async function loadLibraryData() {
             statusArea.textContent = 'Loading library data...';
