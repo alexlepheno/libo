@@ -9,8 +9,8 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
         }
-        /* A simple animation for the result display */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -18,27 +18,68 @@
         .fade-in {
             animation: fadeIn 0.5s ease-out forwards;
         }
-
-        /* Styles for the image modal */
         #imageModal {
             transition: background-color 0.3s ease;
         }
-        #modalImage {
-            transition: transform 0.3s ease;
+        #modalContent {
+            transition: transform 0.3s ease, opacity 0.3s ease;
         }
         @keyframes zoomIn {
-            from { transform: scale(0.5); opacity: 0; }
+            from { transform: scale(0.8); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
         @keyframes zoomOut {
             from { transform: scale(1); opacity: 1; }
-            to { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(0.8); opacity: 0; }
         }
         .zoom-in { animation: zoomIn 0.3s ease-out forwards; }
         .zoom-out { animation: zoomOut 0.3s ease-in forwards; }
+
+        .map-container {
+            position: relative;
+            width: 100%;
+            cursor: pointer;
+        }
+        .map-container img, #modalImage {
+            display: block;
+            width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+        }
+        .map-container svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .room-highlight {
+            fill: rgba(252, 211, 77, 0.5); /* Semi-transparent yellow */
+            stroke: rgba(234, 179, 8, 0.9);
+            stroke-width: 2;
+        }
+        .arrow-indicator {
+            fill: #ef4444; /* Red color */
+        }
+        #modalImageContainer {
+            position: relative;
+        }
+        #modalImageContainer svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #modalImage {
+             max-width: 90vw;
+            max-height: 85vh;
+        }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="flex items-center justify-center min-h-screen p-4">
 
     <div class="w-full max-w-4xl mx-auto">
         <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
@@ -55,7 +96,6 @@
                     </button>
                 </div>
 
-                <!-- Status and Result Area -->
                 <div id="statusArea" class="text-center mt-4 text-gray-500 min-h-[24px]"></div>
                 <div id="resultArea" class="mt-6"></div>
             </main>
@@ -67,12 +107,15 @@
     </div>
 
     <!-- Image Modal Structure -->
-    <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-0 flex items-center justify-center p-4 z-50 hidden transition-all duration-300">
-        <div id="modalContent" class="relative">
-             <img id="modalImage" src="" alt="Zoomed floor plan" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl">
+    <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-0 flex items-center justify-center p-4 z-50 hidden">
+        <div id="modalContent" class="relative text-center">
+             <div id="modalRoomLabel" class="absolute -top-10 left-1/2 -translate-x-1/2 text-white text-xl font-bold bg-black/60 px-4 py-1 rounded-lg pointer-events-none"></div>
+             <div id="modalImageContainer">
+                <img id="modalImage" src="" alt="Zoomed floor plan" />
+                <svg id="modalSvgOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+             </div>
         </div>
     </div>
-
 
     <script>
         // --- 1. CONFIGURATION & SETUP ---
@@ -172,7 +215,7 @@
 [Humanities books] E-Z,PA 6121,PA 6296.D,2M.45,2M
 [Humanities books] E-Z,PA 6296.D,PA 6392.H,2M.44,2M
 [Humanities books] E-Z,PA 6393.A,PA 6568.C,2.56,2
-[Humanities books] E-Z,PA 6393.A,PQ 645.S,2.54-2.59,2
+[Humanities books] E-Z,PA 6393.A,PQ 645.S,"2.54-2.59",2
 [Humanities books] E-Z,PA 6568.C,PA 6716.M,2.55,2
 [Humanities books] E-Z,PA 6716.P,PA 8502.E,2.54,2
 [Humanities books] E-Z,PA 8502.E,PN 94.6,2.55,2
@@ -182,7 +225,7 @@
 [Humanities books] E-Z,PN 1995.9,PN 1998.3,2.58,2
 [Humanities books] E-Z,PN 1998.3,PQ 295.D,2.59,2
 [Humanities books] E-Z,PQ 245.B,PQ 645.S,2.58,2
-[Humanities books] E-Z,PQ 648.B,PQ 6606,2M.54-2M.59,2M
+[Humanities books] E-Z,PQ 648.B,PQ 6606,"2M.54-2M.59",2M
 [Humanities books] E-Z,PQ 648.B,PQ 1779.T,2M.58,2M
 [Humanities books] E-Z,PQ 1781.D,PQ 2242.R,2M.59,2M
 [Humanities books] E-Z,PQ 2246,PQ 2436.S,2M.58,2M
@@ -192,7 +235,7 @@
 [Humanities books] E-Z,PQ 2639,PQ 6389.P,2M.55,2M
 [Humanities books] E-Z,PQ 6390.E,PQ 6606,2M.56,2M
 [Humanities books] E-Z,PQ 6607,PQ 6623.A79,2.64,2
-[Humanities books] E-Z,PQ 6607.E,PT 1479.R,2.62-2.71,2
+[Humanities books] E-Z,PQ 6607.E,PT 1479.R,"2.62-2.71",2
 [Humanities books] E-Z,PQ 6623.A8,PQ 7297,2.63,2
 [Humanities books] E-Z,PQ 7298,PQ 8497.A,2.62,2
 [Humanities books] E-Z,PQ 8497.B,PQ 9261.M69,2.63,2
@@ -209,7 +252,7 @@
 [Humanities books] E-Z,PR 6019.O9.Z5,PR 6054,2.68,2
 [Humanities books] E-Z,PR 6055,PS 3545.L,2.67,2
 [Humanities books] E-Z,PS 3545.M,PT 1099,2.66,2
-[Humanities books] E-Z,PT 1100,ZA 9999,2M.62-2M.72,2M
+[Humanities books] E-Z,PT 1100,ZA 9999,"2M.62-2M.72",2M
 [Humanities books] E-Z,PT 1100,PT 1567,2M.65,2M
 [Humanities books] E-Z,PT 1568,PT 1892,2M.64,2M
 [Humanities books] E-Z,PT 1893,PT 2360,2M.63,2M
@@ -233,7 +276,7 @@
 [Science books],QA 303.S,QA 326.M,2.37,2
 [Science books],QA 326.N,QA 351.0,2.36,2
 [Science books],QA 351.R,QA 387.2,2.35,2
-[Science books],QA 400,QC 61.L,2M.35-2M.37,2M
+[Science books],QA 400,QC 61.L,"2M.35-2M.37",2M
 [Science books],QA 400,QA 471.H,2M.35,2M
 [Science books],QA 471.M,QA 802.2,2M.36,2M
 [Science books],QA 803.C,QC 6.C,2M.37,2M
@@ -245,14 +288,14 @@
 [Science books],QE 681.A,QU 9999,2.41,2
 [Science books],R1,R 855.3,2.41,2
 [Science books],R 855.3,RA 441.B,2.40,2
-[Science books],RA 441.C,TX 9999,2M.39-2M.42,2M
+[Science books],RA 441.C,TX 9999,"2M.39-2M.42",2M
 [Science books],RA 441.C,RC 552.E,2M.40,2M
 [Science books],RC 552.P,TD 892.L,2M.39,2M
 [Science books],TD 892.R,TJ 755.G,2M.40,2M
 [Science books],TJ 755.G,TK 5102.5,2M.41,2M
 [Science books],TK 5102.5,TK 7882.S,2M.42,2M
 [Science books],TK 7882.S,TX 9999,2M.41,2M
-[Humanities books] Folio & Outsize,FOL A 1,ZA 9999,2M.17-2M.20,2M
+[Humanities books] Folio & Outsize,FOL A 1,ZA 9999,"2M.17-2M.20",2M
 [Humanities books] Folio & Outsize,FOL A 1,BR 60.M58,2M.20,2M
 [Humanities books] Folio & Outsize,FOL. BR 60.M58,BR 70.08,2M.19,2M
 [Humanities books] Folio & Outsize,FOL. BR 70.CB,N 6853.P,2M.18,2M
@@ -260,159 +303,235 @@
 [Humanities books] Folio & Outsize,FOL ND 170.N,PA 3309,2M.18,2M
 [Humanities books] Folio & Outsize,FOL. PA 3315.0,UA 23.S,2M.19,2M
 [Humanities books] Folio & Outsize,FOL UA 23.2,ZA 9999,2M.20,2M
-[Humanities books] Folio & Outsize,OUTSIZE A 1,ZA 9999,2M.12-2M.13,2M
+[Humanities books] Folio & Outsize,OUTSIZE A 1,ZA 9999,"2M.12-2M.13",2M
 [Humanities books] Folio & Outsize,OUTSIZE A 1,CN 520.0,2M.13,2M
 [Humanities books] Folio & Outsize,OUTSIZE CN 520.C,ZA 9999,2M.12,2M
 [Humanities books] Folio & Outsize,Atlases,,2M.12,2M`;
+        
+        // --- PRECISE ROOM COORDINATES ---
+        const ROOM_COORDINATES = {
+            '1': {
+                '1.13': { x: 0.5273, y: 0.5117, w: 0.0374, h: 0.1045, r: 0 }, '1.14': { x: 0.5647, y: 0.5117, w: 0.0402, h: 0.0990, r: 0 },
+                '1.24': { x: 0.8290, y: 0.0385, w: 0.0546, h: 0.1045, r: 0 }, '1.25': { x: 0.8290, y: 0.1431, w: 0.0575, h: 0.0660, r: 0 },
+                '1.26': { x: 0.8319, y: 0.2091, w: 0.0517, h: 0.0605, r: 0 }, '1.27': { x: 0.8290, y: 0.2724, w: 0.0546, h: 0.0660, r: 0 },
+                '1.35': { x: 0.8319, y: 0.5365, w: 0.0517, h: 0.0660, r: 0 }, '1.36': { x: 0.8319, y: 0.6025, w: 0.0489, h: 0.0605, r: 0 },
+                '1.37': { x: 0.8319, y: 0.6685, w: 0.0517, h: 0.0605, r: 0 }, '1.38': { x: 0.8290, y: 0.7291, w: 0.0747, h: 0.1155, r: 0 },
+                '1.39': { x: 0.7601, y: 0.7015, w: 0.0517, h: 0.0935, r: 0 }, '1.40': { x: 0.7256, y: 0.6850, w: 0.0316, h: 0.1155, r: 0 },
+                '1.41': { x: 0.6853, y: 0.6850, w: 0.0402, h: 0.1100, r: 0 }, '1.42': { x: 0.6135, y: 0.6685, w: 0.0747, h: 0.1651, r: 0 },
+                '1.43': { x: 0.5675, y: 0.6465, w: 0.0316, h: 0.1045, r: 0 }, '1.44': { x: 0.5302, y: 0.6465, w: 0.0374, h: 0.1100, r: 0 },
+                '1.45': { x: 0.4957, y: 0.6465, w: 0.0345, h: 0.1045, r: 0 }, '1.46': { x: 0.4555, y: 0.6465, w: 0.0402, h: 0.1100, r: 0 },
+                '1.47': { x: 0.4210, y: 0.6465, w: 0.0374, h: 0.1045, r: 0 }, '1.48': { x: 0.3865, y: 0.6465, w: 0.0345, h: 0.1045, r: 0 },
+                '1.49': { x: 0.3520, y: 0.6465, w: 0.0345, h: 0.1045, r: 0 }, '1.50': { x: 0.3175, y: 0.6465, w: 0.0345, h: 0.1045, r: 0 },
+                '1.51': { x: 0.2802, y: 0.6465, w: 0.0374, h: 0.1100, r: 0 }, '1.54': { x: 0.2457, y: 0.7456, w: 0.0345, h: 0.0660, r: 0 },
+                '1.55': { x: 0.2284, y: 0.8116, w: 0.0575, h: 0.1100, r: 0 }, '1.56': { x: 0.1911, y: 0.8116, w: 0.0374, h: 0.1100, r: 0 },
+                '1.57': { x: 0.1595, y: 0.8941, w: 0.0316, h: 0.0330, r: 0 }, '1.58': { x: 0.1164, y: 0.8116, w: 0.0431, h: 0.1100, r: 0 },
+                '1.59': { x: 0.0618, y: 0.8501, w: 0.0546, h: 0.0770, r: 0 }, '1.66': { x: 0.1882, y: 0.5145, w: 0.0345, h: 0.1094, r: 0 },
+                '1.67': { x: 0.2256, y: 0.5145, w: 0.0345, h: 0.1045, r: 0 }, '1.68': { x: 0.2572, y: 0.5145, w: 0.0201, h: 0.1045, r: 0 },
+                '1.69': { x: 0.2802, y: 0.5145, w: 0.0345, h: 0.1045, r: 0 }, '1.70': { x: 0.3147, y: 0.5145, w: 0.0287, h: 0.1155, r: 0 },
+                '1.71': { x: 0.3463, y: 0.5145, w: 0.0402, h: 0.1045, r: 0 },
+            },
+            '1M': {
+                '1M.12': { x: 0.4813, y: 0.5268, w: 0.0517, h: 0.0873, r: 0 }, '1M.13': { x: 0.5330, y: 0.5213, w: 0.0374, h: 0.0928, r: 0 },
+                '1M.14': { x: 0.5675, y: 0.5268, w: 0.0374, h: 0.0819, r: 0 }, '1M.35': { x: 0.8319, y: 0.5323, w: 0.0431, h: 0.0710, r: 0 },
+                '1M.36': { x: 0.8319, y: 0.5978, w: 0.0431, h: 0.0655, r: 0 }, '1M.37': { x: 0.8348, y: 0.6633, w: 0.0489, h: 0.0655, r: 0 },
+                '1M.38': { x: 0.8319, y: 0.7288, w: 0.0718, h: 0.0873, r: 0 }, '1M.39': { x: 0.7629, y: 0.7015, w: 0.0517, h: 0.0601, r: 0 },
+                '1M.40': { x: 0.7256, y: 0.6851, w: 0.0374, h: 0.0710, r: 0 }, '1M.41': { x: 0.6882, y: 0.6797, w: 0.0402, h: 0.0764, r: 0 },
+                '1M.42': { x: 0.6394, y: 0.6906, w: 0.0460, h: 0.0655, r: 0 }, '1M.43': { x: 0.5675, y: 0.6469, w: 0.0374, h: 0.0655, r: 0 },
+                '1M.44': { x: 0.5302, y: 0.6469, w: 0.0374, h: 0.0710, r: 0 }, '1M.45': { x: 0.4986, y: 0.6469, w: 0.0316, h: 0.0710, r: 0 },
+                '1M.46': { x: 0.4612, y: 0.6469, w: 0.0402, h: 0.0655, r: 0 }, '1M.47': { x: 0.4210, y: 0.6414, w: 0.0402, h: 0.0764, r: 0 },
+                '1M.48': { x: 0.3922, y: 0.6469, w: 0.0287, h: 0.0655, r: 0 }, '1M.49': { x: 0.3549, y: 0.6469, w: 0.0345, h: 0.0655, r: 0 },
+                '1M.50': { x: 0.3204, y: 0.6469, w: 0.0345, h: 0.0655, r: 0 }, '1M.51': { x: 0.2830, y: 0.6414, w: 0.0402, h: 0.1037, r: 0 },
+                '1M.54': { x: 0.2486, y: 0.7397, w: 0.0374, h: 0.0710, r: 0 }, '1M.55': { x: 0.2342, y: 0.8107, w: 0.0402, h: 0.0983, r: 0 },
+                '1M.56': { x: 0.1940, y: 0.8052, w: 0.0431, h: 0.0819, r: 0 }, '1M.58': { x: 0.1250, y: 0.8052, w: 0.0402, h: 0.0873, r: 0 },
+                '1M.59': { x: 0.0848, y: 0.8380, w: 0.0402, h: 0.0764, r: 0 }, '1M.66': { x: 0.1911, y: 0.5241, w: 0.0374, h: 0.0873, r: 0 },
+                '1M.67': { x: 0.2284, y: 0.5268, w: 0.0345, h: 0.0873, r: 0 }, '1M.68': { x: 0.2658, y: 0.5268, w: 0.0201, h: 0.0819, r: 0 },
+                '1M.69': { x: 0.2830, y: 0.5268, w: 0.0345, h: 0.0873, r: 0 }, '1M.70': { x: 0.3204, y: 0.5268, w: 0.0374, h: 0.0819, r: 0 },
+                '1M.71': { x: 0.3578, y: 0.5268, w: 0.0287, h: 0.0873, r: 0 }, '1M.72': { x: 0.3865, y: 0.5268, w: 0.0517, h: 0.0873, r: 0 },
+            },
+            '2': {
+                '2.13': { x: 0.5273, y: 0.5197, w: 0.0402, h: 0.0985, r: 0 }, '2.14': { x: 0.5647, y: 0.5197, w: 0.0374, h: 0.0985, r: 0 },
+                '2.18': { x: 0.6624, y: 0.5197, w: 0.0431, h: 0.1422, r: 0 }, '2.19': { x: 0.6997, y: 0.5197, w: 0.0431, h: 0.1368, r: 0 },
+                '2.20': { x: 0.7399, y: 0.5142, w: 0.0431, h: 0.1422, r: 0 }, '2.25': { x: 0.8319, y: 0.1477, w: 0.0575, h: 0.0602, r: 0 },
+                '2.26': { x: 0.8348, y: 0.2079, w: 0.0575, h: 0.0711, r: 0 }, '2.27': { x: 0.8319, y: 0.2735, w: 0.0575, h: 0.0711, r: 0 },
+                '2.38': { x: 0.8319, y: 0.7331, w: 0.0776, h: 0.1149, r: 0 }, '2.39': { x: 0.7601, y: 0.7002, w: 0.0575, h: 0.1094, r: 0 },
+                '2.40': { x: 0.7284, y: 0.6838, w: 0.0345, h: 0.1204, r: 0 }, '2.41': { x: 0.6853, y: 0.6838, w: 0.0431, h: 0.1149, r: 0 },
+                '2.42': { x: 0.6106, y: 0.6619, w: 0.0833, h: 0.1751, r: 0 }, '2.43': { x: 0.5647, y: 0.6455, w: 0.0374, h: 0.1094, r: 0 },
+                '2.44': { x: 0.5302, y: 0.6565, w: 0.0402, h: 0.1094, r: 0 }, '2.45': { x: 0.4957, y: 0.6455, w: 0.0374, h: 0.1149, r: 0 },
+                '2.46': { x: 0.4555, y: 0.6455, w: 0.0431, h: 0.1149, r: 0 }, '2.47': { x: 0.4181, y: 0.6510, w: 0.0460, h: 0.1039, r: 0 },
+                '2.48': { x: 0.3865, y: 0.6455, w: 0.0374, h: 0.1094, r: 0 }, '2.49': { x: 0.3491, y: 0.6510, w: 0.0402, h: 0.1039, r: 0 },
+                '2.50': { x: 0.3147, y: 0.6510, w: 0.0374, h: 0.1039, r: 0 }, '2.51': { x: 0.2802, y: 0.6510, w: 0.0431, h: 0.1039, r: 0 },
+                '2.54': { x: 0.2457, y: 0.7495, w: 0.0345, h: 0.0656, r: 0 }, '2.55': { x: 0.2284, y: 0.8096, w: 0.0575, h: 0.1204, r: 0 },
+                '2.56': { x: 0.1911, y: 0.8151, w: 0.0402, h: 0.1094, r: 0 }, '2.57': { x: 0.1566, y: 0.9026, w: 0.0345, h: 0.0219, r: 0 },
+                '2.58': { x: 0.1193, y: 0.8151, w: 0.0374, h: 0.1094, r: 0 }, '2.59': { x: 0.0618, y: 0.8534, w: 0.0546, h: 0.0711, r: 0 },
+                '2.62': { x: 0.0675, y: 0.7166, w: 0.0776, h: 0.0930, r: 0 }, '2.63': { x: 0.0790, y: 0.6619, w: 0.0805, h: 0.0821, r: 0 },
+                '2.64': { x: 0.1049, y: 0.5799, w: 0.0862, h: 0.0985, r: 0 }, '2.66': { x: 0.1882, y: 0.5142, w: 0.0345, h: 0.1039, r: 0 },
+                '2.67': { x: 0.2256, y: 0.5197, w: 0.0345, h: 0.0930, r: 0 }, '2.68': { x: 0.2601, y: 0.5142, w: 0.0201, h: 0.1039, r: 0 },
+                '2.69': { x: 0.2773, y: 0.5197, w: 0.0402, h: 0.1039, r: 0 }, '2.70': { x: 0.3147, y: 0.5142, w: 0.0345, h: 0.1094, r: 0 },
+                '2.71': { x: 0.3491, y: 0.5197, w: 0.0374, h: 0.0985, r: 0 },
+            },
+            '2M': {
+                '2M.12': { x: 0.4784, y: 0.5225, w: 0.0489, h: 0.0875, r: 0 }, '2M.13': { x: 0.5273, y: 0.5225, w: 0.0402, h: 0.0875, r: 0 },
+                '2M.14': { x: 0.5647, y: 0.5225, w: 0.0374, h: 0.0875, r: 0 }, '2M.16': { x: 0.6020, y: 0.5225, w: 0.0345, h: 0.0875, r: 0 },
+                '2M.17': { x: 0.6336, y: 0.5225, w: 0.0345, h: 0.0328, r: 0 }, '2M.18': { x: 0.6710, y: 0.5225, w: 0.0374, h: 0.1204, r: 0 },
+                '2M.19': { x: 0.6997, y: 0.5279, w: 0.0431, h: 0.1149, r: 0 }, '2M.20': { x: 0.7428, y: 0.5279, w: 0.0402, h: 0.1204, r: 0 },
+                '2M.25': { x: 0.8348, y: 0.1286, w: 0.0489, h: 0.0656, r: 0 }, '2M.26': { x: 0.8348, y: 0.1942, w: 0.0489, h: 0.0602, r: 0 },
+                '2M.27': { x: 0.8348, y: 0.2599, w: 0.0489, h: 0.0656, r: 0 }, '2M.35': { x: 0.8348, y: 0.5279, w: 0.0460, h: 0.0656, r: 0 },
+                '2M.36': { x: 0.8348, y: 0.5991, w: 0.0489, h: 0.0602, r: 0 }, '2M.37': { x: 0.8376, y: 0.6647, w: 0.0489, h: 0.0547, r: 0 },
+                '2M.38': { x: 0.8348, y: 0.7249, w: 0.0776, h: 0.0985, r: 0 }, '2M.39': { x: 0.7629, y: 0.7030, w: 0.0517, h: 0.0656, r: 0 },
+                '2M.40': { x: 0.7256, y: 0.6811, w: 0.0374, h: 0.0875, r: 0 }, '2M.41': { x: 0.6767, y: 0.6811, w: 0.0517, h: 0.0821, r: 0 },
+                '2M.42': { x: 0.6394, y: 0.6811, w: 0.0431, h: 0.0821, r: 0 }, '2M.43': { x: 0.5647, y: 0.6428, w: 0.0402, h: 0.0711, r: 0 },
+                '2M.44': { x: 0.5273, y: 0.6428, w: 0.0431, h: 0.0766, r: 0 }, '2M.45': { x: 0.4899, y: 0.6428, w: 0.0431, h: 0.0766, r: 0 },
+                '2M.46': { x: 0.4555, y: 0.6428, w: 0.0431, h: 0.0766, r: 0 }, '2M.47': { x: 0.4152, y: 0.6428, w: 0.0402, h: 0.0766, r: 0 },
+                '2M.48': { x: 0.3836, y: 0.6483, w: 0.0345, h: 0.0656, r: 0 }, '2M.49': { x: 0.3463, y: 0.6428, w: 0.0431, h: 0.0711, r: 0 },
+                '2M.50': { x: 0.3118, y: 0.6428, w: 0.0345, h: 0.0821, r: 0 }, '2M.51': { x: 0.2716, y: 0.6428, w: 0.0431, h: 0.0985, r: 0 },
+                '2M.54': { x: 0.2371, y: 0.7413, w: 0.0374, h: 0.0711, r: 0 }, '2M.55': { x: 0.2256, y: 0.8124, w: 0.0287, h: 0.1039, r: 0 },
+                '2M.56': { x: 0.1825, y: 0.8124, w: 0.0402, h: 0.0821, r: 0 }, '2M.58': { x: 0.1106, y: 0.8124, w: 0.0374, h: 0.0930, r: 0 },
+                '2M.59': { x: 0.0647, y: 0.8452, w: 0.0460, h: 0.0766, r: 0 }, '2M.62': { x: 0.0704, y: 0.7468, w: 0.0632, h: 0.0602, r: 0 },
+                '2M.63': { x: 0.0905, y: 0.6538, w: 0.0718, h: 0.0930, r: 0 }, '2M.64': { x: 0.1106, y: 0.5936, w: 0.0603, h: 0.0656, r: 0 },
+                '2M.65': { x: 0.1250, y: 0.5060, w: 0.0661, h: 0.0985, r: 0 }, '2M.66': { x: 0.1767, y: 0.5252, w: 0.0402, h: 0.0875, r: 0 },
+                '2M.67': { x: 0.2170, y: 0.5225, w: 0.0374, h: 0.0875, r: 0 }, '2M.68': { x: 0.2514, y: 0.5170, w: 0.0201, h: 0.0930, r: 0 },
+                '2M.69': { x: 0.2716, y: 0.5225, w: 0.0402, h: 0.0930, r: 0 }, '2M.70': { x: 0.3089, y: 0.5225, w: 0.0374, h: 0.0875, r: 0 },
+                '2M.71': { x: 0.3463, y: 0.5225, w: 0.0374, h: 0.0821, r: 0 }, '2M.72': { x: 0.3807, y: 0.5225, w: 0.0517, h: 0.0875, r: 0 },
+            }
+        };
 
-        let libraryData = []; // This will hold our parsed library data.
-
-        // Get references to our HTML elements
+        let libraryData = [];
         const findButton = document.getElementById('findButton');
         const classmarkInput = document.getElementById('classmarkInput');
         const statusArea = document.getElementById('statusArea');
         const resultArea = document.getElementById('resultArea');
         const imageModal = document.getElementById('imageModal');
-        const modalImage = document.getElementById('modalImage');
         const modalContent = document.getElementById('modalContent');
+        const modalRoomLabel = document.getElementById('modalRoomLabel');
+        const modalImageContainer = document.getElementById('modalImageContainer');
+        const modalImage = document.getElementById('modalImage');
+        const modalSvgOverlay = document.getElementById('modalSvgOverlay');
 
-
-        // --- 2. DATA PARSING ---
-
-        /**
-         * Parses the embedded CSV data.
-         */
-        function loadLibraryData() {
-            try {
-                // Parse the CSV text into an array of objects
-                libraryData = Papa.parse(CSV_DATA, { header: true, skipEmptyLines: true }).data;
-                console.log('Library data loaded:', libraryData);
-            } catch (error) {
-                console.error('Failed to parse library data:', error);
-                statusArea.textContent = 'Error: Could not parse library data.';
-                statusArea.classList.add('text-red-500');
-            }
-        }
-        
-        // Use PapaParse library for robust CSV parsing
+        // --- 2. DATA PARSING & INITIALIZATION ---
         function loadPapaParse(callback) {
             const script = document.createElement('script');
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js';
             script.onload = callback;
-            script.onerror = () => {
-                statusArea.textContent = 'Error: Could not load data parser. Please check your internet connection.';
-                statusArea.classList.add('text-red-500');
-            };
             document.head.appendChild(script);
         }
 
+        function loadLibraryData() {
+            try {
+                libraryData = Papa.parse(CSV_DATA, { header: true, skipEmptyLines: true }).data;
+            } catch (error) {
+                statusArea.textContent = 'Error: Could not parse library data.';
+            }
+        }
+        
         // --- 3. CORE SEARCH LOGIC ---
-
-        /**
-         * Normalizes a classmark string for reliable alphanumeric comparison.
-         * It removes spaces and pads numbers with leading zeros.
-         * e.g., "DA 560.E" -> "DA000560.E"
-         * @param {string} str - The classmark string.
-         * @returns {string} - The normalized string.
-         */
         function normalizeForSort(str) {
             if (!str || typeof str !== 'string') return '';
-            // Remove spaces, then find all numbers and pad them with leading zeros to a fixed length.
-            // This ensures that "DA 60" comes before "DA 560" in a standard string sort.
             return str.toUpperCase().replace(/\s/g, '').replace(/(\d+)/g, num => num.padStart(6, '0'));
         }
 
-        /**
-         * Finds the location for a given classmark.
-         * @param {string} userInput - The classmark entered by the user.
-         * @returns {object|null} - The matching row from the data or null if not found.
-         */
+        function parseRoomString(roomStr) {
+            if (!roomStr || typeof roomStr !== 'string') return [];
+            const rooms = [];
+            const roomMatches = roomStr.match(/([A-Z0-9]+\.[0-9]+)/g) || [];
+            if (roomStr.includes('-') && roomMatches.length === 2) {
+                const [start, end] = roomMatches;
+                const startPrefixMatch = start.match(/^([A-Z0-9]+\.)/);
+                const endPrefixMatch = end.match(/^([A-Z0-9]+\.)/);
+                if (startPrefixMatch && endPrefixMatch && startPrefixMatch[1] === endPrefixMatch[1]) {
+                    const prefix = startPrefixMatch[1];
+                    const startNum = parseInt(start.replace(prefix, ''), 10);
+                    const endNum = parseInt(end.replace(prefix, ''), 10);
+                    if (!isNaN(startNum) && !isNaN(endNum) && startNum <= endNum) {
+                        for (let i = startNum; i <= endNum; i++) rooms.push(prefix + i);
+                        return rooms;
+                    }
+                }
+            }
+            return roomMatches;
+        }
+
         function findBookLocation(userInput) {
             const normalizedInput = normalizeForSort(userInput);
             if (!normalizedInput) return null;
-             
-            // First pass: check for exact matches on items with no range.
+            for (const row of libraryData) {
+                const begin = normalizeForSort(row.Beg);
+                if (!row.End && normalizedInput === begin) return row;
+            }
             for (const row of libraryData) {
                 const begin = normalizeForSort(row.Beg);
                 const end = normalizeForSort(row.End);
-
-                if (!end && normalizedInput === begin) {
-                    return row; // Exact match found for single-entry classmark
-                }
+                if (end && normalizedInput >= begin && normalizedInput <= end) return row;
             }
-
-            // Second pass: check for range matches.
-            for (const row of libraryData) {
-                const begin = normalizeForSort(row.Beg);
-                const end = normalizeForSort(row.End);
-                
-                if (end && normalizedInput >= begin && normalizedInput <= end) {
-                    return row; // Match found in range!
-                }
-            }
-
-            return null; // No match found
+            return null;
         }
 
-        // --- 4. DISPLAY AND EVENT HANDLING ---
-
-        /**
-         * Opens the modal to display the zoomed-in image.
-         * @param {string} src - The image source URL.
-         */
-        function openModal(src) {
-            modalImage.setAttribute('src', src);
-            imageModal.classList.remove('hidden');
-            // Animate in
-            setTimeout(() => {
-                imageModal.classList.remove('bg-opacity-0');
-                imageModal.classList.add('bg-opacity-75');
-                modalContent.classList.remove('zoom-out', 'zoom-in');
-                modalContent.classList.add('zoom-in');
-            }, 10); // A tiny delay to allow the browser to render the element before animating
+        // --- 4. MODAL & DISPLAY LOGIC ---
+        function openModal(imageSrc, svgContent, roomLabel) {
+            modalImage.src = imageSrc;
+            modalImage.onload = () => {
+                modalSvgOverlay.innerHTML = svgContent;
+                modalRoomLabel.textContent = `Room(s): ${roomLabel}`;
+                imageModal.classList.remove('hidden');
+                setTimeout(() => {
+                    imageModal.classList.add('bg-opacity-75');
+                    modalContent.classList.add('zoom-in');
+                }, 10);
+            }
         }
 
-        /**
-         * Closes the image modal with an animation.
-         */
         function closeModal() {
             imageModal.classList.remove('bg-opacity-75');
-            imageModal.classList.add('bg-opacity-0');
             modalContent.classList.remove('zoom-in');
             modalContent.classList.add('zoom-out');
-            
-            // Wait for the animation to complete before hiding the modal
             setTimeout(() => {
                 imageModal.classList.add('hidden');
-            }, 300); // Must match the animation duration in CSS
+                modalContent.classList.remove('zoom-out');
+            }, 300);
         }
 
-        /**
-         * Displays the search result on the page.
-         * @param {object|null} result - The result object from the search.
-         */
         function displayResult(result) {
-            resultArea.innerHTML = ''; // Clear previous results
+            resultArea.innerHTML = '';
             if (!result) {
                 resultArea.innerHTML = `
                     <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg fade-in" role="alert">
-                        <p class="font-bold">Not Found</p>
-                        <p>We couldn't find a location for that classmark. Please check for typos.</p>
-                    </div>
-                `;
+                        <p class="font-bold">Not Found</p><p>We couldn't find a location for that classmark. Please check for typos.</p>
+                    </div>`;
                 return;
             }
             
-            let imagePath = '';
             const floor = result.Floor;
-            if (floor === '1') {
-                imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-1.jpg';
-            } else if (floor === '1M') {
-                imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-1M.png';
-            } else if (floor === '2') {
-                imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-2.jpg';
-            } else if (floor === '2M') {
-                imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-2M.jpg';
+            let imagePath = '';
+            if (floor === '1') imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-1.jpg';
+            else if (floor === '1M') imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-1M.png';
+            else if (floor === '2') imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-2.jpg';
+            else if (floor === '2M') imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-2M.jpg';
+
+            const roomsToHighlight = parseRoomString(result['Room(s)']);
+            const floorCoords = ROOM_COORDINATES[floor];
+            let svgContent = '';
+
+            if (floorCoords) {
+                roomsToHighlight.forEach(roomNumber => {
+                    const coords = floorCoords[roomNumber];
+                    if (coords) {
+                        const x = coords.x * 100, y = coords.y * 100, w = coords.w * 100, h = coords.h * 100;
+                        const transform = coords.r ? `rotate(${coords.r} ${x + w/2} ${y + h/2})` : '';
+                        
+                        svgContent += `<rect x="${x}%" y="${y}%" width="${w}%" height="${h}%" class="room-highlight" transform="${transform}" />`;
+                        
+                        const arrowSize = 2.5; 
+                        const centerX = x + w / 2;
+                        let arrowY, arrowPath;
+                        if ((y + h / 2) < 50) {
+                            arrowY = y - arrowSize - 1;
+                            arrowPath = `M${centerX - arrowSize/2},${arrowY + arrowSize} L${centerX},${arrowY} L${centerX + arrowSize/2},${arrowY + arrowSize} Z`;
+                        } else {
+                            arrowY = y + h + 1;
+                            arrowPath = `M${centerX - arrowSize/2},${arrowY} L${centerX},${arrowY + arrowSize} L${centerX + arrowSize/2},${arrowY} Z`;
+                        }
+                        svgContent += `<path d="${arrowPath}" class="arrow-indicator" />`;
+                    }
+                });
             }
 
             resultArea.innerHTML = `
@@ -429,25 +548,25 @@
                         ${imagePath ? `
                         <div class="mt-4 md:mt-0">
                             <h3 class="font-semibold text-gray-700 mb-2">Floor Plan (${result.Floor})</h3>
-                            <img src="${imagePath}" alt="Floor plan for floor ${result.Floor}" class="rounded-lg shadow-md border w-full h-auto cursor-pointer hover:opacity-90 transition-opacity">
+                            <div class="map-container">
+                                <img src="${imagePath}" alt="Floor plan for floor ${result.Floor}" class="border-2 border-gray-300">
+                                <svg viewBox="0 0 100 100" preserveAspectRatio="none">${svgContent}</svg>
+                            </div>
                         </div>
                         ` : ''}
                     </div>
-                </div>
-            `;
+                </div>`;
 
-            // Attach click listener to the new image for the modal
-            const floorPlanImage = resultArea.querySelector('img');
-            if (floorPlanImage) {
-                floorPlanImage.addEventListener('click', () => {
-                    openModal(floorPlanImage.src);
+            const mapContainer = resultArea.querySelector('.map-container');
+            if (mapContainer) {
+                mapContainer.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openModal(imagePath, svgContent, result['Room(s)']);
                 });
             }
         }
         
-        /**
-         * Main search handler function.
-         */
+        // --- 5. EVENT LISTENERS ---
         function performSearch() {
             const query = classmarkInput.value.trim();
             if (!query) {
@@ -459,27 +578,17 @@
             displayResult(location);
         }
 
-        // Attach event listeners
         findButton.addEventListener('click', performSearch);
         classmarkInput.addEventListener('keyup', (event) => {
-            if (event.key === 'Enter') {
-                performSearch();
-            }
+            if (event.key === 'Enter') performSearch();
         });
         
-        // Listener to close the modal
         imageModal.addEventListener('click', (e) => {
-            // Close only if the click is on the background, not the image itself
-            if (e.target === imageModal) {
-                closeModal();
-            }
+            if (e.target === imageModal) closeModal();
         });
 
-
-        // --- 5. INITIALIZATION ---
-        // Load the CSV parser, then load the library data.
+        // --- 6. INITIALIZATION ---
         loadPapaParse(loadLibraryData);
-
     </script>
 </body>
 </html>
