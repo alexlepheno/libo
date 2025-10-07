@@ -446,6 +446,7 @@
         // --- 4. DISPLAY AND ANIMATION ---
 
         function isMobileDevice() {
+            // A simple check based on screen width
             return window.innerWidth <= 768;
         }
 
@@ -455,11 +456,12 @@
             const mobile = isMobileDevice();
 
             function animate(time) {
-                const glow = (Math.sin(time / 400) + 1) / 2; // Pulse factor
+                // Create a pulsing effect using a sine wave
+                const glow = (Math.sin(time / 400) + 1) / 2; // Pulse factor (0 to 1)
                 
-                // Lightweight pulse for mobile, full glow for desktop
-                const opacity = 0.3 + glow * 0.4;
-                const shadowBlur = mobile ? 15 : 20 + glow * 15;
+                // Use a more performant, opacity-based pulse, especially for mobile
+                const opacity = 0.3 + glow * 0.4; // Stronger pulse
+                const shadowBlur = mobile ? 15 : 20 + glow * 15; // Animate blur on desktop only
 
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -480,14 +482,24 @@
                             ctx.rotate(angle);
                             ctx.rect(-w / 2, -h / 2, w, h);
                             
-                            ctx.fillStyle = `rgba(252, 211, 77, ${opacity})`;
-                            ctx.strokeStyle = 'rgba(234, 179, 8, 0.9)';
-                            ctx.lineWidth = 5;
+                            // --- Layered Glow Effect ---
+                            
+                            // 1. Base glow layer (static blur)
                             ctx.shadowColor = 'rgba(252, 211, 77, 1)';
                             ctx.shadowBlur = shadowBlur;
-
+                            ctx.fillStyle = `rgba(252, 211, 77, ${opacity / 2})`; // Softer base
                             ctx.fill();
+                            
+                            // 2. Core pulsing layer (no blur)
+                            ctx.shadowBlur = 0;
+                            ctx.fillStyle = `rgba(252, 211, 77, ${opacity})`;
+                            ctx.fill();
+                            
+                            // 3. Border
+                            ctx.strokeStyle = 'rgba(234, 179, 8, 0.9)';
+                            ctx.lineWidth = 5;
                             ctx.stroke();
+
                             ctx.restore();
                         }
                     });
