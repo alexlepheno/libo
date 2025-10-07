@@ -362,7 +362,7 @@
         };
 
         let libraryData = [];
-        let animationFrameId = null; // To control the animation loop
+        let animationFrameId = null;
 
         const findButton = document.getElementById('findButton');
         const classmarkInput = document.getElementById('classmarkInput');
@@ -389,7 +389,6 @@
             document.head.appendChild(script);
         }
 
-        // --- 3. CORE SEARCH & PARSING LOGIC ---
         function normalizeForSort(str) {
             if (!str || typeof str !== 'string') return '';
             return str.toUpperCase().replace(/\s/g, '').replace(/(\d+)/g, num => num.padStart(6, '0'));
@@ -441,22 +440,27 @@
                     return row;
                 }
             }
-
             return null;
         }
 
         // --- 4. DISPLAY AND ANIMATION ---
 
+        function isMobileDevice() {
+            return window.innerWidth <= 768;
+        }
+
         function startHighlightAnimation(canvas, image, roomsToHighlight, floor) {
             const ctx = canvas.getContext('2d');
             const floorCoords = ROOM_COORDINATES[floor];
-            
+            const mobile = isMobileDevice();
+
             function animate(time) {
-                // Slower, more pronounced pulse
-                const glow = (Math.sin(time / 500) + 1) / 2; 
-                const opacity = 0.35 + glow * 0.35; 
-                const shadowBlur = 20 + glow * 15;
+                const glow = (Math.sin(time / 400) + 1) / 2; // Pulse factor
                 
+                // Lightweight pulse for mobile, full glow for desktop
+                const opacity = 0.3 + glow * 0.4;
+                const shadowBlur = mobile ? 15 : 20 + glow * 15;
+
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
@@ -478,7 +482,7 @@
                             
                             ctx.fillStyle = `rgba(252, 211, 77, ${opacity})`;
                             ctx.strokeStyle = 'rgba(234, 179, 8, 0.9)';
-                            ctx.lineWidth = 5; 
+                            ctx.lineWidth = 5;
                             ctx.shadowColor = 'rgba(252, 211, 77, 1)';
                             ctx.shadowBlur = shadowBlur;
 
@@ -490,10 +494,8 @@
                 }
                 animationFrameId = requestAnimationFrame(animate);
             }
-            // Stop any previous animation before starting a new one
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
+
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
             animationFrameId = requestAnimationFrame(animate);
         }
 
@@ -509,7 +511,6 @@
             img.onload = () => {
                 modalCanvas.width = img.naturalWidth;
                 modalCanvas.height = img.naturalHeight;
-                
                 startHighlightAnimation(modalCanvas, img, roomsToHighlight, result.Floor);
             };
             img.src = imageSrc;
@@ -620,4 +621,3 @@
     </script>
 </body>
 </html>
-
