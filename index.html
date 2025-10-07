@@ -18,6 +18,24 @@
         .fade-in {
             animation: fadeIn 0.5s ease-out forwards;
         }
+
+        /* Styles for the image modal */
+        #imageModal {
+            transition: background-color 0.3s ease;
+        }
+        #modalImage {
+            transition: transform 0.3s ease;
+        }
+        @keyframes zoomIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        @keyframes zoomOut {
+            from { transform: scale(1); opacity: 1; }
+            to { transform: scale(0.5); opacity: 0; }
+        }
+        .zoom-in { animation: zoomIn 0.3s ease-out forwards; }
+        .zoom-out { animation: zoomOut 0.3s ease-in forwards; }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -47,6 +65,14 @@
             <p>made by Alexandre Laurent 2025</p>
         </footer>
     </div>
+
+    <!-- Image Modal Structure -->
+    <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-0 flex items-center justify-center p-4 z-50 hidden transition-all duration-300">
+        <div id="modalContent" class="relative">
+             <img id="modalImage" src="" alt="Zoomed floor plan" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl">
+        </div>
+    </div>
+
 
     <script>
         // --- 1. CONFIGURATION & SETUP ---
@@ -246,6 +272,10 @@
         const classmarkInput = document.getElementById('classmarkInput');
         const statusArea = document.getElementById('statusArea');
         const resultArea = document.getElementById('resultArea');
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const modalContent = document.getElementById('modalContent');
+
 
         // --- 2. DATA PARSING ---
 
@@ -300,20 +330,62 @@
         function findBookLocation(userInput) {
             const normalizedInput = normalizeForSort(userInput);
             if (!normalizedInput) return null;
+             
+            // First pass: check for exact matches on items with no range.
+            for (const row of libraryData) {
+                const begin = normalizeForSort(row.Beg);
+                const end = normalizeForSort(row.End);
 
+                if (!end && normalizedInput === begin) {
+                    return row; // Exact match found for single-entry classmark
+                }
+            }
+
+            // Second pass: check for range matches.
             for (const row of libraryData) {
                 const begin = normalizeForSort(row.Beg);
                 const end = normalizeForSort(row.End);
                 
-                // Use simple string comparison on the normalized values
-                if (normalizedInput >= begin && normalizedInput <= end) {
-                    return row; // Match found!
+                if (end && normalizedInput >= begin && normalizedInput <= end) {
+                    return row; // Match found in range!
                 }
             }
+
             return null; // No match found
         }
 
         // --- 4. DISPLAY AND EVENT HANDLING ---
+
+        /**
+         * Opens the modal to display the zoomed-in image.
+         * @param {string} src - The image source URL.
+         */
+        function openModal(src) {
+            modalImage.setAttribute('src', src);
+            imageModal.classList.remove('hidden');
+            // Animate in
+            setTimeout(() => {
+                imageModal.classList.remove('bg-opacity-0');
+                imageModal.classList.add('bg-opacity-75');
+                modalContent.classList.remove('zoom-out', 'zoom-in');
+                modalContent.classList.add('zoom-in');
+            }, 10); // A tiny delay to allow the browser to render the element before animating
+        }
+
+        /**
+         * Closes the image modal with an animation.
+         */
+        function closeModal() {
+            imageModal.classList.remove('bg-opacity-75');
+            imageModal.classList.add('bg-opacity-0');
+            modalContent.classList.remove('zoom-in');
+            modalContent.classList.add('zoom-out');
+            
+            // Wait for the animation to complete before hiding the modal
+            setTimeout(() => {
+                imageModal.classList.add('hidden');
+            }, 300); // Must match the animation duration in CSS
+        }
 
         /**
          * Displays the search result on the page.
@@ -331,7 +403,6 @@
                 return;
             }
             
-            // Determine the correct image file based on the 'Floor' value
             let imagePath = '';
             const floor = result.Floor;
             if (floor === '1') {
@@ -344,7 +415,6 @@
                 imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-2M.jpg';
             }
 
-            // Create the result card, now with the floor plan
             resultArea.innerHTML = `
                 <div class="bg-green-100 border-l-4 border-green-500 p-6 rounded-lg shadow-sm fade-in">
                     <div class="md:grid md:grid-cols-2 md:gap-6 items-start">
@@ -359,14 +429,20 @@
                         ${imagePath ? `
                         <div class="mt-4 md:mt-0">
                             <h3 class="font-semibold text-gray-700 mb-2">Floor Plan (${result.Floor})</h3>
-                            <a href="${imagePath}" target="_blank">
-                                <img src="${imagePath}" alt="Floor plan for floor ${result.Floor}" class="rounded-lg shadow-md border w-full h-auto cursor-pointer hover:opacity-90 transition-opacity">
-                            </a>
+                            <img src="${imagePath}" alt="Floor plan for floor ${result.Floor}" class="rounded-lg shadow-md border w-full h-auto cursor-pointer hover:opacity-90 transition-opacity">
                         </div>
                         ` : ''}
                     </div>
                 </div>
             `;
+
+            // Attach click listener to the new image for the modal
+            const floorPlanImage = resultArea.querySelector('img');
+            if (floorPlanImage) {
+                floorPlanImage.addEventListener('click', () => {
+                    openModal(floorPlanImage.src);
+                });
+            }
         }
         
         /**
@@ -390,6 +466,15 @@
                 performSearch();
             }
         });
+        
+        // Listener to close the modal
+        imageModal.addEventListener('click', (e) => {
+            // Close only if the click is on the background, not the image itself
+            if (e.target === imageModal) {
+                closeModal();
+            }
+        });
+
 
         // --- 5. INITIALIZATION ---
         // Load the CSV parser, then load the library data.
