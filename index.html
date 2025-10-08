@@ -472,9 +472,10 @@
             for (const row of libraryData) {
                 const begin = normalizeForSort(row.Beg);
                 const end = normalizeForSort(row.End);
-                
+
                 if (begin && end && normalizedInput >= begin && normalizedInput <= end) {
-                    potentialMatches.push({ row: row, beginKey: begin });
+                    // Store both begin and end keys for a more precise sort
+                    potentialMatches.push({ row: row, beginKey: begin, endKey: end });
                 }
             }
 
@@ -482,9 +483,21 @@
                 return null;
             }
 
-            // Sort matches by their 'beginKey' in descending (Z-A) order
-            // to find the most specific match (the one with the "highest" start).
-            potentialMatches.sort((a, b) => b.beginKey.localeCompare(a.beginKey));
+            // Sort by the most specific range.
+            // 1. Primary sort: by the beginning of the range, descending (Z-A).
+            //    This brings more specific, higher-value classmarks (e.g., 'HD 9000') to the top
+            //    over broader ones (e.g., 'HC 241.2').
+            // 2. Secondary sort (tie-breaker): by the end of the range, ascending (A-Z).
+            //    If two ranges start at the same point, this prefers the one that ends sooner,
+            //    making it the narrowest and most specific match.
+            potentialMatches.sort((a, b) => {
+                const beginCompare = b.beginKey.localeCompare(a.beginKey);
+                if (beginCompare !== 0) {
+                    return beginCompare;
+                }
+                // If beginKey is the same, sort by endKey ascending to find the narrowest range
+                return a.endKey.localeCompare(b.endKey);
+            });
 
             // The first item in the sorted list is our most specific match.
             return potentialMatches[0].row;
