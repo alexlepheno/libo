@@ -106,6 +106,7 @@
         </footer>
     </div>
 
+    <!-- Image Modal Structure -->
     <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-0 flex items-center justify-center p-4 z-50 hidden">
         <div id="modalContent" class="relative text-center">
              <div id="modalRoomLabel" class="absolute -top-10 left-1/2 -translate-x-1/2 text-white text-xl font-bold bg-black/60 px-4 py-1 rounded-lg pointer-events-none"></div>
@@ -425,28 +426,12 @@
         // --- 3. CORE SEARCH LOGIC ---
         function normalizeForSort(str) {
             if (!str || typeof str !== 'string') return '';
-
-            // Clean the string: uppercase and remove all spaces for consistency.
             const cleanStr = str.toUpperCase().replace(/\s/g, '');
-
-            // Separate the initial block of letters from the rest of the string.
             const match = cleanStr.match(/^([A-Z]+)(.*)/);
-
-            // If the string doesn't start with letters (e.g., a special case like "Atlases"), return it as is.
             if (!match) return cleanStr; 
-
             const [, letters, rest] = match;
-
-            // Pad the initial letters to a fixed length with spaces. This is the crucial step.
-            // It ensures that prefixes of different lengths are sorted correctly
-            // (e.g., 'B' is treated as less than 'BC').
             const paddedLetters = letters.padEnd(8, ' ');
-
-            // Pad all number sequences found in the remainder of the string with leading zeros.
-            // This ensures that numerical parts are compared by value, not as strings (e.g., 100 > 20).
             const paddedRest = rest.replace(/(\d+)/g, num => num.padStart(8, '0'));
-
-            // Combine the parts to create a final, comparable string.
             return `${paddedLetters}${paddedRest}`;
         }
 
@@ -474,17 +459,37 @@
         function findBookLocation(userInput) {
             const normalizedInput = normalizeForSort(userInput);
             if (!normalizedInput) return null;
+
+            // First, check for any exact, single-entry matches (like 'Atlases').
             for (const row of libraryData) {
-                const begin = normalizeForSort(row.Beg);
-                if (!row.End && normalizedInput === begin) return row;
+                if (!row.End && normalizeForSort(row.Beg) === normalizedInput) {
+                    return row;
+                }
             }
+
+            // --- NEW LOGIC: Find all possible matches ---
+            const potentialMatches = [];
             for (const row of libraryData) {
                 const begin = normalizeForSort(row.Beg);
                 const end = normalizeForSort(row.End);
-                if (end && normalizedInput >= begin && normalizedInput <= end) return row;
+                
+                if (begin && end && normalizedInput >= begin && normalizedInput <= end) {
+                    potentialMatches.push({ row: row, beginKey: begin });
+                }
             }
-            return null;
+
+            if (potentialMatches.length === 0) {
+                return null;
+            }
+
+            // Sort matches by their 'beginKey' in descending (Z-A) order
+            // to find the most specific match (the one with the "highest" start).
+            potentialMatches.sort((a, b) => b.beginKey.localeCompare(a.beginKey));
+
+            // The first item in the sorted list is our most specific match.
+            return potentialMatches[0].row;
         }
+
 
         // --- 4. MODAL & DISPLAY LOGIC ---
         function openModal(imageSrc, svgContent, roomLabel) {
