@@ -34,14 +34,46 @@
         }
         .zoom-in { animation: zoomIn 0.3s ease-out forwards; }
         .zoom-out { animation: zoomOut 0.3s ease-in forwards; }
-        canvas {
-            max-width: 100%;
+
+        .map-container {
+            position: relative;
+            width: 100%;
+            cursor: pointer;
+        }
+        .map-container img, #modalImage {
+            display: block;
+            width: 100%;
             height: auto;
             border-radius: 0.5rem;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
         }
-        #modalCanvas {
+        .map-container svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .room-highlight {
+            fill: rgba(252, 211, 77, 0.5); /* Semi-transparent yellow */
+            stroke: rgba(234, 179, 8, 0.9);
+            stroke-width: 2;
+        }
+        .arrow-indicator {
+            fill: #ef4444; /* Red color */
+        }
+        #modalImageContainer {
+            position: relative;
+        }
+        #modalImageContainer svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #modalImage {
             max-width: 90vw;
             max-height: 85vh;
         }
@@ -74,14 +106,15 @@
         </footer>
     </div>
 
-    <!-- Image Modal Structure -->
     <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-0 flex items-center justify-center p-4 z-50 hidden">
         <div id="modalContent" class="relative text-center">
              <div id="modalRoomLabel" class="absolute -top-10 left-1/2 -translate-x-1/2 text-white text-xl font-bold bg-black/60 px-4 py-1 rounded-lg pointer-events-none"></div>
-             <canvas id="modalCanvas" class="rounded-lg shadow-2xl"></canvas>
+             <div id="modalImageContainer">
+                 <img id="modalImage" src="" alt="Zoomed floor plan" />
+                 <svg id="modalSvgOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+             </div>
         </div>
     </div>
-
 
     <script>
         // --- 1. CONFIGURATION & SETUP ---
@@ -362,17 +395,24 @@
         };
 
         let libraryData = [];
-        let animationFrameId = null;
-
         const findButton = document.getElementById('findButton');
         const classmarkInput = document.getElementById('classmarkInput');
         const statusArea = document.getElementById('statusArea');
         const resultArea = document.getElementById('resultArea');
         const imageModal = document.getElementById('imageModal');
-        const modalCanvas = document.getElementById('modalCanvas');
         const modalContent = document.getElementById('modalContent');
         const modalRoomLabel = document.getElementById('modalRoomLabel');
+        const modalImageContainer = document.getElementById('modalImageContainer');
+        const modalImage = document.getElementById('modalImage');
+        const modalSvgOverlay = document.getElementById('modalSvgOverlay');
 
+        // --- 2. DATA PARSING & INITIALIZATION ---
+        function loadPapaParse(callback) {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js';
+            script.onload = callback;
+            document.head.appendChild(script);
+        }
 
         function loadLibraryData() {
             try {
@@ -382,38 +422,48 @@
             }
         }
         
-        function loadPapaParse(callback) {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js';
-            script.onload = callback;
-            document.head.appendChild(script);
-        }
-
+        // --- 3. CORE SEARCH LOGIC ---
         function normalizeForSort(str) {
             if (!str || typeof str !== 'string') return '';
-            return str.toUpperCase().replace(/\s/g, '').replace(/(\d+)/g, num => num.padStart(6, '0'));
+
+            // Clean the string: uppercase and remove all spaces for consistency.
+            const cleanStr = str.toUpperCase().replace(/\s/g, '');
+
+            // Separate the initial block of letters from the rest of the string.
+            const match = cleanStr.match(/^([A-Z]+)(.*)/);
+
+            // If the string doesn't start with letters (e.g., a special case like "Atlases"), return it as is.
+            if (!match) return cleanStr; 
+
+            const [, letters, rest] = match;
+
+            // Pad the initial letters to a fixed length with spaces. This is the crucial step.
+            // It ensures that prefixes of different lengths are sorted correctly
+            // (e.g., 'B' is treated as less than 'BC').
+            const paddedLetters = letters.padEnd(8, ' ');
+
+            // Pad all number sequences found in the remainder of the string with leading zeros.
+            // This ensures that numerical parts are compared by value, not as strings (e.g., 100 > 20).
+            const paddedRest = rest.replace(/(\d+)/g, num => num.padStart(8, '0'));
+
+            // Combine the parts to create a final, comparable string.
+            return `${paddedLetters}${paddedRest}`;
         }
 
         function parseRoomString(roomStr) {
             if (!roomStr || typeof roomStr !== 'string') return [];
-            
             const rooms = [];
             const roomMatches = roomStr.match(/([A-Z0-9]+\.[0-9]+)/g) || [];
-
             if (roomStr.includes('-') && roomMatches.length === 2) {
                 const [start, end] = roomMatches;
                 const startPrefixMatch = start.match(/^([A-Z0-9]+\.)/);
                 const endPrefixMatch = end.match(/^([A-Z0-9]+\.)/);
-                
                 if (startPrefixMatch && endPrefixMatch && startPrefixMatch[1] === endPrefixMatch[1]) {
                     const prefix = startPrefixMatch[1];
                     const startNum = parseInt(start.replace(prefix, ''), 10);
                     const endNum = parseInt(end.replace(prefix, ''), 10);
-
                     if (!isNaN(startNum) && !isNaN(endNum) && startNum <= endNum) {
-                        for (let i = startNum; i <= endNum; i++) {
-                            rooms.push(prefix + i);
-                        }
+                        for (let i = startNum; i <= endNum; i++) rooms.push(prefix + i);
                         return rooms;
                     }
                 }
@@ -424,119 +474,33 @@
         function findBookLocation(userInput) {
             const normalizedInput = normalizeForSort(userInput);
             if (!normalizedInput) return null;
-
             for (const row of libraryData) {
                 const begin = normalizeForSort(row.Beg);
-                if (!row.End && normalizedInput === begin) {
-                    return row;
-                }
+                if (!row.End && normalizedInput === begin) return row;
             }
-
             for (const row of libraryData) {
                 const begin = normalizeForSort(row.Beg);
                 const end = normalizeForSort(row.End);
-                
-                if (end && normalizedInput >= begin && normalizedInput <= end) {
-                    return row;
-                }
+                if (end && normalizedInput >= begin && normalizedInput <= end) return row;
             }
             return null;
         }
 
-        // --- 4. DISPLAY AND ANIMATION ---
-
-        function isMobileDevice() {
-            // A simple check based on screen width
-            return window.innerWidth <= 768;
-        }
-
-        function startHighlightAnimation(canvas, image, roomsToHighlight, floor) {
-            const ctx = canvas.getContext('2d');
-            const floorCoords = ROOM_COORDINATES[floor];
-            const mobile = isMobileDevice();
-
-            function animate(time) {
-                // Create a pulsing effect using a sine wave
-                const glow = (Math.sin(time / 400) + 1) / 2; // Pulse factor (0 to 1)
-                
-                // Use a more performant, opacity-based pulse, especially for mobile
-                const opacity = 0.3 + glow * 0.4; // Stronger pulse
-                const shadowBlur = mobile ? 15 : 20 + glow * 15; // Animate blur on desktop only
-
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-                if (floorCoords && roomsToHighlight.length > 0) {
-                    roomsToHighlight.forEach(roomNumber => {
-                        if (floorCoords[roomNumber]) {
-                            const coords = floorCoords[roomNumber];
-                            const x = coords.x * canvas.width;
-                            const y = coords.y * canvas.height;
-                            const w = coords.w * canvas.width;
-                            const h = coords.h * canvas.height;
-                            const angle = (coords.r || 0) * Math.PI / 180;
-
-                            ctx.save();
-                            ctx.beginPath();
-                            ctx.translate(x + w / 2, y + h / 2);
-                            ctx.rotate(angle);
-                            ctx.rect(-w / 2, -h / 2, w, h);
-                            
-                            // --- Layered Glow Effect ---
-                            
-                            // 1. Base glow layer (static blur)
-                            ctx.shadowColor = 'rgba(252, 211, 77, 1)';
-                            ctx.shadowBlur = shadowBlur;
-                            ctx.fillStyle = `rgba(252, 211, 77, ${opacity / 2})`; // Softer base
-                            ctx.fill();
-                            
-                            // 2. Core pulsing layer (no blur)
-                            ctx.shadowBlur = 0;
-                            ctx.fillStyle = `rgba(252, 211, 77, ${opacity})`;
-                            ctx.fill();
-                            
-                            // 3. Border
-                            ctx.strokeStyle = 'rgba(234, 179, 8, 0.9)';
-                            ctx.lineWidth = 5;
-                            ctx.stroke();
-
-                            ctx.restore();
-                        }
-                    });
-                }
-                animationFrameId = requestAnimationFrame(animate);
+        // --- 4. MODAL & DISPLAY LOGIC ---
+        function openModal(imageSrc, svgContent, roomLabel) {
+            modalImage.src = imageSrc;
+            modalImage.onload = () => {
+                modalSvgOverlay.innerHTML = svgContent;
+                modalRoomLabel.textContent = `Room(s): ${roomLabel}`;
+                imageModal.classList.remove('hidden');
+                setTimeout(() => {
+                    imageModal.classList.add('bg-opacity-75');
+                    modalContent.classList.add('zoom-in');
+                }, 10);
             }
-
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            animationFrameId = requestAnimationFrame(animate);
-        }
-
-        function openModal(imageSrc, result) {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            
-            modalRoomLabel.textContent = `Room(s): ${result['Room(s)']}`;
-            imageModal.classList.remove('hidden');
-            
-            const roomsToHighlight = parseRoomString(result['Room(s)']);
-            const img = new Image();
-            img.crossOrigin = "Anonymous";
-            img.onload = () => {
-                modalCanvas.width = img.naturalWidth;
-                modalCanvas.height = img.naturalHeight;
-                startHighlightAnimation(modalCanvas, img, roomsToHighlight, result.Floor);
-            };
-            img.src = imageSrc;
-
-            setTimeout(() => {
-                imageModal.classList.add('bg-opacity-75');
-                modalContent.classList.add('zoom-in');
-            }, 10);
         }
 
         function closeModal() {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-
             imageModal.classList.remove('bg-opacity-75');
             modalContent.classList.remove('zoom-in');
             modalContent.classList.add('zoom-out');
@@ -547,13 +511,11 @@
         }
 
         function displayResult(result) {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
             resultArea.innerHTML = '';
             if (!result) {
                 resultArea.innerHTML = `
                     <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg fade-in" role="alert">
-                        <p class="font-bold">Not Found</p>
-                        <p>We couldn't find a location for that classmark. Please check for typos.</p>
+                        <p class="font-bold">Not Found</p><p>We couldn't find a location for that classmark. Please check for typos.</p>
                     </div>`;
                 return;
             }
@@ -565,7 +527,33 @@
             else if (floor === '2') imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-2.jpg';
             else if (floor === '2M') imagePath = 'https://raw.githubusercontent.com/alexlepheno/libo/cd3fd65b190f7dc63af2e59096cb7e5569c3ac48/floor-plan-2M.jpg';
 
-            const canvasContainerId = `canvas-container-${Date.now()}`;
+            const roomsToHighlight = parseRoomString(result['Room(s)']);
+            const floorCoords = ROOM_COORDINATES[floor];
+            let svgContent = '';
+
+            if (floorCoords) {
+                roomsToHighlight.forEach(roomNumber => {
+                    const coords = floorCoords[roomNumber];
+                    if (coords) {
+                        const x = coords.x * 100, y = coords.y * 100, w = coords.w * 100, h = coords.h * 100;
+                        const transform = coords.r ? `rotate(${coords.r} ${x + w/2} ${y + h/2})` : '';
+                        
+                        svgContent += `<rect x="${x}%" y="${y}%" width="${w}%" height="${h}%" class="room-highlight" transform="${transform}" />`;
+                        
+                        const arrowSize = 2.5; 
+                        const centerX = x + w / 2;
+                        let arrowY, arrowPath;
+                        if ((y + h / 2) < 50) {
+                            arrowY = y - arrowSize - 1;
+                            arrowPath = `M${centerX - arrowSize/2},${arrowY + arrowSize} L${centerX},${arrowY} L${centerX + arrowSize/2},${arrowY + arrowSize} Z`;
+                        } else {
+                            arrowY = y + h + 1;
+                            arrowPath = `M${centerX - arrowSize/2},${arrowY} L${centerX},${arrowY + arrowSize} L${centerX + arrowSize/2},${arrowY} Z`;
+                        }
+                        svgContent += `<path d="${arrowPath}" class="arrow-indicator" />`;
+                    }
+                });
+            }
 
             resultArea.innerHTML = `
                 <div class="bg-green-100 border-l-4 border-green-500 p-6 rounded-lg shadow-sm fade-in">
@@ -581,33 +569,25 @@
                         ${imagePath ? `
                         <div class="mt-4 md:mt-0">
                             <h3 class="font-semibold text-gray-700 mb-2">Floor Plan (${result.Floor})</h3>
-                            <div id="${canvasContainerId}" class="cursor-pointer"></div>
+                            <div class="map-container">
+                                <img src="${imagePath}" alt="Floor plan for floor ${result.Floor}" class="border-2 border-gray-300">
+                                <svg viewBox="0 0 100 100" preserveAspectRatio="none">${svgContent}</svg>
+                            </div>
                         </div>
                         ` : ''}
                     </div>
                 </div>`;
-            
-            if (imagePath) {
-                const canvasContainer = document.getElementById(canvasContainerId);
-                const canvas = document.createElement('canvas');
-                canvasContainer.appendChild(canvas);
-                
-                const roomsToHighlight = parseRoomString(result['Room(s)']);
-                const img = new Image();
-                img.crossOrigin = "Anonymous";
-                img.onload = () => {
-                    canvas.width = img.naturalWidth;
-                    canvas.height = img.naturalHeight;
-                    startHighlightAnimation(canvas, img, roomsToHighlight, floor);
-                };
-                img.src = imagePath;
-                
-                canvas.addEventListener('click', () => {
-                    openModal(imagePath, result);
+
+            const mapContainer = resultArea.querySelector('.map-container');
+            if (mapContainer) {
+                mapContainer.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openModal(imagePath, svgContent, result['Room(s)']);
                 });
             }
         }
         
+        // --- 5. EVENT LISTENERS ---
         function performSearch() {
             const query = classmarkInput.value.trim();
             if (!query) {
@@ -628,8 +608,8 @@
             if (e.target === imageModal) closeModal();
         });
 
+        // --- 6. INITIALIZATION ---
         loadPapaParse(loadLibraryData);
-
     </script>
 </body>
 </html>
